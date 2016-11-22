@@ -1,0 +1,146 @@
+28.2.5 Cookie setting
+
+Servers -> Server Types -> WebSphere Application Servers -> server1 -> Session management -> Cookies
+
+When you select cookie as the session mechanism type, you can view or change the cookies
+settings by clicking the Enable Cookies hot link, as described in 28.2.3, “Selecting session
+tracking options” on page 969. Figure 28-4 on page 971 shows the available cookie settings.
+
+The available cookies settings, shown in Figure 28-4, are described in the following list:
+> Cookie name
+Specifies a unique cookie name for session management. The default value is
+JSESSIONID.
+> Restrict cookies to HTTPS sessions
+Specifies that the session cookies include the secure field. Enabling this feature restricts
+the exchange of cookies to HTTPS sessions only and the session cookie’s body includes
+the secure indicator field.
+> Set cookies as HTTP only to help prevent cross-site scripting attacks
+Specifies that session cookies include the HTTP only field. When checked, browsers that
+support the HTTP only attribute do not enable cookies to be accessed by client-side
+scripts. For security cookies, see the global security settings for web single sign-on (SSO).
+> Cookie domain
+Dictates to the browser whether to send a cookie to particular servers. For example, if you
+specify a particular domain, the browser sends back session cookies only to hosts in that
+domain. The default value is the server.
+Note: The Lightweight Third Party Authentication (LTPA) token or cookie that is sent
+back to the browser is scoped by a single DNS domain that is specified when security is
+configured. Thus, all application servers in an entire WebSphere Application Server
+domain must share the same DNS domain for security purposes.
+
+> Cookie maximum age
+Specifies the amount of time that the cookie lives in the client browser. This option
+includes the following choices:
+– Expire at the end of the Current browser session which is the default option.
+– Expire by configuring Set maximum age
+If you choose the maximum age option, specify the age in seconds. This value
+corresponds to the Time to Live (TTL) value described in the Cookie specification.
+> Cookie path
+Sets the paths on the server that define where the browser sends the session tracking
+cookie. Specify any string that represents a path on the server:
+– Use the context root
+– Set cookie path, which is also the default option (use the forward slash (/) to indicate
+the root directory).
+Specifying a value restricts the paths to which the cookie is sent. By restricting paths, you
+can keep the cookie from being sent to certain URLs on the server. If you specify the root
+directory, the cookie is sent no matter which path on the given server is accessed.
+
+
+=================================================================================================
+[Setting the Secure Flag]
+* Servlet 3.0 (Java EE 6)
+  Sun Java EE supports secure flag in Cookie interface since version 6 (Servlet class version 3), 
+  also for session cookies (JSESSIONID). Methods setSecure and isSecure can be used to set and check for 
+  secure value in cookies.
+  => web.xml
+    Servlet 3.0 (Java EE 6) introduced a standard way to configure secure attribute for the session 
+	cookie, this can be done by applying the following configuration in web.xml (estas directivas 
+	no son compatibles con la versión 2.5 de servlets):
+
+	<session-config>
+	 <cookie-config>
+	  <secure>true</secure>
+	  <http-only>true</http-only>
+	 </cookie-config>
+	</session-config>
+
+* Tomcat
+  In Tomcat 6 if the first request for session is using https then it automatically sets secure attribute 
+  on session cookie.
+
+  > Setting it as a custom header
+    For older versions the workaround is to rewrite JSESSIONID value using and setting it as a custom 
+	header. The drawback is that servers can be configured to use a different session identifier 
+	than JSESSIONID.
+	
+		String sessionid = request.getSession().getId();
+		response.setHeader("SET-COOKIE", "JSESSIONID=" + sessionid + "; secure");
+
+* Prueba de la bandera "Secure".
+  Al emplear la bandera "Secure" no será posible obtener cookies a través de Javascript, mediante:
+	document.cookie();
+
+
+==============================================================================================
+Es posible asignar las banderas programáticamente, mediante el siguiente código:
+	
+	String sessionid = req.getSession().getId();
+	res.setHeader("Set-Cookie", "JSESSIONID=" +  sessionid + ";HttpOnly");
+	res.setHeader("SET-COOKIE", "JSESSIONID=" + sessionid + "; secure");
+
+Pero se puede producir el siguiente issue:
+	The issue is when I logout and login immediately in the same browser I am able to login but after 
+	that on the jsp pages I am getting session timeout issue. We use weblogic related apis. 
+	request.getuserprinical() api is returning null.. guess it is setting to null
+
+La siguiente página tiene mayor detalle sobre esto:
+http://stackoverflow.com/questions/15510354/how-to-set-httponly-and-session-cookie-for-java-web-appliaction
+
+
+=====================================================================================================
+Sugierieron el siguiente cambio (al parecer en WAS 7 ó 8):
+
+JSESSIONID cookie:
+
+	Secure Flag:
+	The Secure flag can be set within the WebSphere Application Server administrative interface by
+	selecting AppServer->[Server Name]->Web Container Settings->Session Management. Check the checkbox 
+	for “Restrict cookies to HTTPS Sessions”.
+
+	HTTPOnly Flag:
+	The HTTPOnly attribute cannot currently be set on this cookie. This is registered on the IBM site 
+	as APAR PK98436. The fix for this APAR is currently targeted for inclusion in Fix Packs 6.1.0.31 
+	and 7.0.0.9, which are not yet available. With this APAR in place, the HTTPOnly flag can be set on 
+	the JSESSIONID cookie by way of the property name: com.ibm.ws.webcontainer.httpOnlyCookies. Refer to 
+	the following technote for instructions on enabling WebContainer custom properties.
+	  Para especificar propiedades personalizadas de contenedor Web:
+        1. En la consola administrativa, pulse Servidores > Tipos de servidor > Servidores de 
+	       aplicaciones WebSphere > nombre_servidor > Valores de contenedor web > Contenedor web.
+        2. En Propiedades adicionales seleccione Propiedades personalizadas.
+        3. En la página Propiedades personalizadas, pulse Nuevo.
+        4. En la página de valores, especifique el nombre de la propiedad personalizada que desea 
+		   configurar en el campo Nombre y el valor correspondiente en el campo Valor.
+        5. Pulse Aplicar o Aceptar.
+        6. Pulse Guardar en la barra de tareas de la consola para guardar los cambios realizados en la 
+		   configuración.
+        7. Reinicie el servidor.
+
+
+[Setting the HTTPOnly and Secure Flags on Tivoli Access Manager/WebSphere Application Server Cookies]
+http://www-01.ibm.com/support/docview.wss?uid=swg21422185
+
+Secure flag can be set by using the administrative interface and selecting (WAS 6.1) 
+Security->Secure Administration->Applications->Infrastructure. Under “Authentication”, 
+click Web Security->Single Sign-on (SSO), and check “Requires SSL”. This flag secure LtpaToken and LtpaToken2 
+cookie
+
+WebSphere Application Server v7.0 and Higher - Global security > Single sign-on (SSO)
+
+Secure Flag:
+The Secure flag can be set within the WebSphere Application Server administrative interface by
+selecting AppServer->[Server Name]->Web Container Settings->Session Management.  Check the checkbox 
+for “Restrict cookies to HTTPS Sessions”
+
+
+
+
+/WEB-INF/pages/contratoPM/busquedaApoderado.jsp
